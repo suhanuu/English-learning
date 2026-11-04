@@ -35,6 +35,8 @@
         delete r.due;
       }
       if (r.iv === undefined) r.iv = (r.interval || 0) * DAY;
+      // 旧数据没有 grade：用上次评级补，没评过的按「忘了」算，挑词时才算得出权重
+      if (r.grade === undefined) r.grade = r.last || 1;
       delete r.interval;
     });
     return {
@@ -51,11 +53,13 @@
 
   function getRec(word) {
     if (!db.records[word]) {
-      db.records[word] = { ease: 2.5, reps: 0, iv: 0, dueAt: 0, last: 0, seen: 0, wrong: 0, lastAt: 0 };
+      db.records[word] = { ease: 2.5, reps: 0, iv: 0, dueAt: 0, last: 0, seen: 0, wrong: 0, lastAt: 0, grade: 0 };
     }
     var r = db.records[word];
     if (r.dueAt === undefined) r.dueAt = 0;
     if (r.iv === undefined) r.iv = 0;
+    // 旧数据没有档位：按上次评级补，没评过的当作「忘了」一样对待
+    if (r.grade === undefined) r.grade = r.last || 1;
     return r;
   }
 
@@ -99,28 +103,64 @@
   }
 
   // ================= 间隔重复 =================
-  // 忘了：2 分钟后重来；模糊：8 分钟后重来；很熟：按 SM-2 拉长到 1/3/7… 天
+  // 三档自评 → 复习权重（挑词时按权重随机，权重比就是出现概率比）
+  //   1 = 忘了 / hard：1.00   最容易再被抽到
+  //   2 = 模糊 / good：0.90   比 hard 低 10%
+  //   3 = 很熟 / easy：0.03   极小，做到「极少再出现」
+  var GRADE_WEIGHT = { 1: 1, 2: 0.9, 3: 0.03 };
+  // 三档首次回看的间隔：hard 很快回到队列，good 稍晚，easy 走天数
+  var GRADE_FIRST_GAP = { 1: 2 * MIN, 2: 10 * MIN };
+  var EASY_IV_MULT = 1.6;     // 很熟的词在 SM-2 间隔上再放大，少打扰
+
+  // 忘了：2 分钟后重来；模糊：10 分钟后重来；很熟：按 SM-2 拉长到 3/7/… 天
   function applyGrade(rec, grade) {
     var now = Date.now();
+    rec.grade = grade;   // 记住这一档，挑词时按它算权重
     if (grade === 1) {
       rec.reps = 0;
       rec.iv = 0;
       rec.ease = Math.max(1.3, rec.ease - 0.18);
-      rec.dueAt = now + 2 * MIN;
+      rec.dueAt = now + GRADE_FIRST_GAP[1];
     } else if (grade === 2) {
       rec.reps = Math.max(1, rec.reps);
       rec.iv = rec.iv > 0 ? Math.round(rec.iv * 0.6) : 0;
       rec.ease = Math.max(1.3, rec.ease - 0.05);
-      rec.dueAt = now + 8 * MIN;
+      rec.dueAt = now + GRADE_FIRST_GAP[2];
     } else {
       rec.reps += 1;
-      if (rec.iv <= 0 || rec.iv < MIN) rec.iv = DAY;
-      else if (rec.reps <= 2) rec.iv = rec.reps === 1 ? DAY : 3 * DAY;
-      else rec.iv = Math.round(rec.iv * rec.ease);
+      if (rec.iv <= 0 || rec.iv < MIN) rec.iv = 3 * DAY;
+      else if (rec.reps <= 2) rec.iv = rec.reps === 1 ? 3 * DAY : 7 * DAY;
+      else rec.iv = Math.round(rec.iv * rec.ease * EASY_IV_MULT);
       rec.ease = Math.min(2.8, rec.ease + 0.05);
       rec.dueAt = now + rec.iv;
     }
     rec.last = grade;
+  }
+
+  // 一条记录在复习池里的抽取权重：档位基础权重 × 逾期加速
+  // 逾期越久越容易被抽到（每逾期 1 小时翻一倍，最多放大到 7 倍），
+  // 这样积压的词不会永远沉底，但同逾期、同池时三档的比例仍是 1 : 0.9 : 0.03
+  function reviewWeight(rec, now) {
+    var base = GRADE_WEIGHT[rec.grade] || GRADE_WEIGHT[1];
+    var late = rec.dueAt ? Math.max(0, (now - rec.dueAt) / (60 * MIN)) : 0;
+    return base * (1 + Math.min(late, 6));
+  }
+
+  // 按权重随机抽一个：权重占比 = 被抽中的概率
+  function pickWeighted(pool, now) {
+    var i, total = 0, ticks = [];
+    for (i = 0; i < pool.length; i++) {
+      var wt = reviewWeight(db.records[pool[i].w.w], now);
+      ticks.push(wt);
+      total += wt;
+    }
+    if (!total) return pool[0];
+    var r = Math.random() * total;
+    for (i = 0; i < pool.length; i++) {
+      r -= ticks[i];
+      if (r <= 0) return pool[i];
+    }
+    return pool[pool.length - 1];
   }
 
   // ================= 取词 =================
@@ -164,8 +204,10 @@
       }
     }
 
+    // 到期的词不再按 due 排队，而是按档位权重加权随机：
+    // 忘了的最容易再冒出来，模糊的略低，很熟的只是偶尔露一面
     var due = duePool(Date.now());
-    if (due.length) return { w: due[0].w, mode: 'due' };
+    if (due.length) return { w: pickWeighted(due, Date.now()).w, mode: 'due' };
 
     var fresh = nextNew();
     if (fresh) return { w: fresh, mode: 'new' };
@@ -1142,11 +1184,12 @@
     if (wasNew) d.newWords += 1;
 
     // 忘了、模糊的词在本次学习里换个位置再出现一次：
-    // 忘了插在 4~6 个词之后（趁还有印象），模糊插在 11~14 个词之后（稍稍拉开）
+    // 忘了插在 4~6 个词之后（趁还有印象），模糊只比它晚一步（5~7），
+    // 和权重表 1 : 0.9 的差距保持一致；很熟的词本轮不再打扰。
     if (grade === 1) {
       scheduleRetry(w, 4 + Math.round(Math.random() * 2));
     } else if (grade === 2) {
-      scheduleRetry(w, 11 + Math.round(Math.random() * 3));
+      scheduleRetry(w, 5 + Math.round(Math.random() * 2));
     }
 
     save();
@@ -1683,6 +1726,14 @@
       loadNext();
     });
   }
+
+  // 回归脚本用：把权重表与加权抽取暴露出来，方便统计实际抽中比例
+  window.__drillRev = {
+    grade: GRADE_WEIGHT,
+    weight: reviewWeight,
+    pick: pickWeighted,
+    pool: duePool
+  };
 
   // ================= 启动 =================
   // 没有欢迎页也没有每日任务：打开就是接着上次的那个词
