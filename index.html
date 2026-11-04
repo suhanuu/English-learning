@@ -69,8 +69,13 @@
           </div>
 
           <div class="type-row" id="typeRow">
-            <input id="typeInput" type="text" autocomplete="off" autocorrect="off"
-                   autocapitalize="off" spellcheck="false" placeholder="把中文意思敲出来">
+            <div class="type-field" id="typeField">
+              <input id="typeInput" type="text" autocomplete="off" autocorrect="off"
+                     autocapitalize="off" spellcheck="false" placeholder=" "
+                     aria-labelledby="typeLabel">
+              <span class="type-caret" aria-hidden="true"></span>
+              <label class="type-label" id="typeLabel" for="typeInput">把中文意思敲出来</label>
+            </div>
             <div class="feedback" id="feedback"></div>
           </div>
         </div>
