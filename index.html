@@ -125,20 +125,22 @@
         <div class="stat-card"><div class="num" id="statMastered">0</div><div class="lbl">已进入复习的词</div></div>
       </div>
 
-      <div class="chart-block">
-        <div class="chart-head">
-          <div class="chart-title">一次打对率</div>
-          <div class="chart-latest" id="accLatest"></div>
+      <div class="chart-row">
+        <div class="chart-block">
+          <div class="chart-head">
+            <div class="chart-title">一次打对率</div>
+            <div class="chart-latest" id="accLatest"></div>
+          </div>
+          <div class="chart" data-series="acc"></div>
         </div>
-        <div class="chart" data-series="acc"></div>
-      </div>
 
-      <div class="chart-block">
-        <div class="chart-head">
-          <div class="chart-title">打字速度 · 字/分</div>
-          <div class="chart-latest" id="cpmLatest"></div>
+        <div class="chart-block">
+          <div class="chart-head">
+            <div class="chart-title">打字速度 · 字/分</div>
+            <div class="chart-latest" id="cpmLatest"></div>
+          </div>
+          <div class="chart" data-series="cpm"></div>
         </div>
-        <div class="chart" data-series="cpm"></div>
       </div>
     </div>
   </section>
@@ -168,16 +170,21 @@
         <button class="ghost-btn" id="btnMoreWords" style="padding:7px 18px;font-size:12.5px">显示更多</button>
       </div>
 
-      <div class="import-box">
-        <h3 class="chart-title" style="margin-bottom:10px">导入你自己的词表</h3>
-        <textarea id="importText" placeholder="apple | /ˈæpəl/ | n. 苹果；苹果树
+      <div class="import-box" id="importBox">
+        <button class="import-toggle" id="importToggle" type="button">
+          <span class="chart-title">导入你自己的词表</span>
+          <span class="import-caret">展开</span>
+        </button>
+        <div class="import-body">
+          <textarea id="importText" placeholder="apple | /ˈæpəl/ | n. 苹果；苹果树
 abandon | /əˈbændən/ | v. 放弃；抛弃
 
 一行一个词，分隔符用 | 或逗号，也可以直接从 Excel 复制四列贴进来。"></textarea>
-        <div class="import-actions">
-          <button class="primary-btn" id="btnImport" style="padding:9px 20px;font-size:13px">导入</button>
-          <button class="ghost-btn" id="btnImportDemo" style="padding:8px 16px">填一段示例</button>
-          <span class="import-hint" id="importHint"></span>
+          <div class="import-actions">
+            <button class="primary-btn" id="btnImport" style="padding:9px 20px;font-size:13px">导入</button>
+            <button class="ghost-btn" id="btnImportDemo" style="padding:8px 16px">填一段示例</button>
+            <span class="import-hint" id="importHint"></span>
+          </div>
         </div>
       </div>
     </div>
