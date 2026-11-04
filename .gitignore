@@ -7,3 +7,13 @@ _data/re/.profile*/
 # 系统杂项
 .DS_Store
 Thumbs.db
+
+# 编辑器（保留共享的 .vscode 配置）
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# 依赖与日志
+node_modules/
+*.log

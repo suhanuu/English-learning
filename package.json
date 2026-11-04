@@ -1,0 +1,14 @@
+{
+  "name": "kaoyan-words",
+  "private": true,
+  "version": "1.0.0",
+  "description": "考研单词学习 · 红宝书记忆与打字练习（纯静态）",
+  "scripts": {
+    "build": "node _data/build.js",
+    "build:hands": "node _data/build-hands.js",
+    "dev": "python -m http.server 8000"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
