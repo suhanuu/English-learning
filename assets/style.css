@@ -910,13 +910,16 @@ button {
   transform-origin: 0 0;
   transform: translate(0, 0) scale(1);
   pointer-events: none;
-  opacity: 0.88; /* 手是淡线稿，键要能透出来 */
+  /* 虚化背景信息：半透明 + 轻微高斯模糊，让键位始终是主角，
+     手只是"大概位置"的提示，不抢字、不挡键 */
+  opacity: 0.5;
+  filter: blur(0.8px) saturate(0.9);
   /* 手腕在键盘下沿淡出：终点由 JS 按实际缩放折算成画布百分比，
      否则等比放大后渐变会落到可视区外，只剩一条硬切边 */
   --hand-fade-end: 96%;
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(var(--hand-fade-end) - 12%), transparent var(--hand-fade-end));
   mask-image: linear-gradient(to bottom, #000 calc(var(--hand-fade-end) - 12%), transparent var(--hand-fade-end));
-  transition: opacity 0.3s var(--ease);
+  transition: opacity 0.3s var(--ease), filter 0.3s var(--ease);
 }
 .hands svg {
   display: block;
@@ -929,25 +932,26 @@ button {
 .hands .st0 { display: none; }
 .hands .st1 {
   fill: var(--hand-fill);
-  opacity: 0.62;
+  opacity: 0.4;
 }
-[data-theme="dark"] .hands .st1 { opacity: 0.3; }
+[data-theme="dark"] .hands .st1 { opacity: 0.2; }
 
 .hands .st2 {
   fill: none;
   stroke: var(--hand-line);
   stroke-width: 2;
   stroke-miterlimit: 10;
+  opacity: 0.65;
 }
 /* 指甲：原站是 .st3 组 50% + .st4 灰填充 */
-.hands .st3 { opacity: 0.5; }
-.hands .st4 { fill: var(--hand-nail); }
+.hands .st3 { opacity: 0.3; }
+.hands .st4 { fill: var(--hand-nail); opacity: 0.55; }
 
-/* 正在按的那根手指 */
+/* 正在按的那根手指：整体虚化后要把高亮补回来，保证依然一眼可见 */
 .hands .st5 {
   fill: none;
   stroke: var(--hand-hl);
-  stroke-width: 3;
+  stroke-width: 3.5;
   stroke-linecap: round;
   stroke-miterlimit: 10;
 }
