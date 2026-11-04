@@ -872,7 +872,9 @@ button {
   border-color: rgba(255, 255, 255, 0.14);
 }
 
-/* 浮动标签：占位符位置 → 聚焦或已有内容时上移缩小 */
+/* 提示标签：空框时停在占位符位置，敲下第一个字就淡出。
+   提示语只在「还没动手」时有价值；一旦开始打字，框里应该只剩正在敲的字，
+   再多留一行 10px 小字只是噪声，还会和第一行字抢视线。 */
 .type-label {
   position: absolute;
   left: 42px;
@@ -882,22 +884,21 @@ button {
   font-size: 13.5px;
   letter-spacing: 0.02em;
   color: var(--faint);
+  opacity: 1;
   pointer-events: none;
-  transition: top 0.2s var(--ease), font-size 0.2s var(--ease),
-    color 0.2s var(--ease), letter-spacing 0.2s var(--ease), transform 0.2s var(--ease);
+  transition: transform 0.22s var(--ease), color 0.2s var(--ease),
+    letter-spacing 0.2s var(--ease), opacity 0.15s var(--ease);
 }
 /* input 带一个空格 placeholder，于是 :placeholder-shown 正等价于「还没输入」。
-   这样聚焦上浮、有内容保持上浮，都由浏览器状态驱动，不用 JS 记 class，
-   程序里直接改 value（比如判错后回填答案）也会自动跟着浮起来。 */
-#typeInput:focus ~ .type-label,
-#typeInput:not(:placeholder-shown) ~ .type-label {
-  top: 9px;
-  transform: none;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-}
+   隐去完全由浏览器状态驱动，不用 JS 记 class：
+   程序里直接改 value（判错后回填答案）也会自动跟着消失。 */
 #typeInput:focus ~ .type-label { color: var(--accent-deep); }
+
+#typeInput:not(:placeholder-shown) ~ .type-label {
+  opacity: 0;
+  /* 淡出的同时轻轻上飘，读起来是「提示让位」而不是原地蒸发 */
+  transform: translateY(-50%) translateY(-9px);
+}
 
 #typeInput:focus {
   border-color: var(--accent);
@@ -1250,17 +1251,9 @@ button {
   .drill .meaning-block { --meaning-h: clamp(96px, 15vh, 132px); min-height: 0; }
   .drill .answer { min-height: 1.8em; }
   .drill .action-zone { height: 74px; }
-  /* 矮屏没有空间做「标签上浮」，改成有内容即淡出，省下 10px 高度 */
+  /* 矮屏空间紧，输入框再压一档（提示语淡出已是全局行为，不必在这里特判） */
   .type-field { --type-h: 48px; }
   .feedback { height: 18px; margin-top: 8px; }
-  .drill #typeInput:focus ~ .type-label,
-  .drill #typeInput:not(:placeholder-shown) ~ .type-label {
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 13.5px;
-    letter-spacing: 0.02em;
-    opacity: 0;
-  }
 }
 /* 更矮（笔记本半屏、缩放后的窗口）：再压一档，宁可小也不出滚动条 */
 @media (max-height: 700px) and (min-width: 861px) {
