@@ -34,6 +34,11 @@
   --pending: #c3bfb1;
   --py: #c0bcae;
 
+  /* 键帽字符：比 --muted 深两档。键帽底是近白的纸面，
+     #45443b 的对比度约 9:1（--muted 只有 5.6:1），盲打扫视时更容易捕捉。
+     偏暖的深灰而不是纯 #4A4A4A，是为了不破坏整套纸感配色。 */
+  --key-ink: #45443b;
+
   --glow-warm: rgba(255, 233, 194, 0.55);
   --glow-cool: rgba(199, 216, 234, 0.45);
   --stage-glow: rgba(63, 111, 158, 0.07);
@@ -107,6 +112,9 @@
 
   --pending: #4a4e56;
   --py: #63666e;
+  /* 深色下键帽底只有 5% 白，字符要亮到 10:1 左右才不会糊；
+     再亮就整块键盘发白，反而抢了单词的注意力 */
+  --key-ink: #d5d0c4;
 
   --glow-warm: rgba(120, 92, 48, 0.16);
   --glow-cool: rgba(48, 84, 120, 0.22);
@@ -463,7 +471,7 @@ button {
 
 .drill-bar {
   flex: 1;
-  height: 4px;
+  height: 5px;
   border-radius: 99px;
   background: var(--line);
   position: relative;
@@ -479,12 +487,37 @@ button {
   box-shadow: 0 0 12px -1px var(--accent-ring);
   transition: width 0.42s var(--ease);
 }
+/* 进度条填充：一道缓慢流过的高光，读完一个词就能看到它在动，
+   比纯色块更像「在推进」，也不用换成圆环去占顶部空间。 */
 .drill-bar i::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
-  opacity: 0.5;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  background-size: 55% 100%;
+  background-repeat: no-repeat;
+  animation: barSheen 2.8s var(--ease) infinite;
+}
+@keyframes barSheen {
+  0% { background-position: -60% 0; }
+  55%, 100% { background-position: 165% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drill-bar i::after { animation: none; }
+}
+
+/* 尾端进度点：填充到哪，点就跟到哪，给一个「正在走」的落点 */
+.drill-bar i::before {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 9px var(--accent-ring);
 }
 
 .stage {
@@ -524,7 +557,8 @@ button {
   font-weight: 400;
   line-height: 1.04;
   letter-spacing: -0.022em;
-  margin-bottom: 18px;
+  /* 亲密性：单词与音标是一组，间距压到 8px（原来 18px 让两个信息各说各话） */
+  margin-bottom: 8px;
   word-break: break-word;
   color: var(--text);
 }
@@ -535,7 +569,8 @@ button {
   align-items: center;
   gap: 10px;
   justify-content: center;
-  margin-bottom: 34px;
+  /* 组间：比组内大一个量级，视线才会先落在「词 + 音标」再下移到释义 */
+  margin-bottom: 44px;
   padding: 6px 9px 6px 17px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -582,7 +617,7 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
 }
 
@@ -771,21 +806,61 @@ button {
 }
 .type-row.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
 
-#typeInput {
-  display: block;
+/* 输入行：左对齐 + 左侧光标指示器 + 浮动标签。
+   之前是居中 placeholder，和上方居中的释义争同一个视觉中心；
+   改成左对齐后，输入行读起来像“一行待填的答案”，焦点更清楚。 */
+.type-field {
+  position: relative;
   width: 100%;
   max-width: 440px;
   margin: 0 auto;
+  --type-h: 58px;
+}
+
+.type-caret {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  width: 2px;
+  height: 19px;
+  margin-top: -9px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transform: scaleY(0.35);
+  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease);
+  pointer-events: none;
+}
+#typeInput:focus ~ .type-caret {
+  opacity: 1;
+  transform: none;
+  animation: caretBlink 1.05s steps(1) infinite;
+}
+@keyframes caretBlink {
+  0%, 54% { opacity: 1; }
+  55%, 100% { opacity: 0.15; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #typeInput:focus ~ .type-caret { animation: none; opacity: 0.7; }
+}
+
+#typeInput {
+  display: block;
+  width: 100%;
+  height: var(--type-h);
+  line-height: var(--type-h);
   background: var(--field);
   border: 1px solid var(--line-strong);
   border-radius: 15px;
   outline: none;
-  padding: 14px 20px;
+  /* 左内边距给光标指示器让位 */
+  padding: 0 16px 0 42px;
   font-family: var(--font-sans);
   font-size: 19px;
   color: var(--text);
-  text-align: center;
-  letter-spacing: 0.09em;
+  text-align: left;
+  letter-spacing: 0.06em;
+  caret-color: var(--accent);
   box-shadow: var(--shadow-key), 0 8px 22px -18px rgba(23, 22, 15, 0.35);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
@@ -796,11 +871,34 @@ button {
   background: rgba(255, 255, 255, 0.055);
   border-color: rgba(255, 255, 255, 0.14);
 }
-#typeInput::placeholder {
-  color: var(--faint);
-  letter-spacing: 0.02em;
+
+/* 浮动标签：占位符位置 → 聚焦或已有内容时上移缩小 */
+.type-label {
+  position: absolute;
+  left: 42px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-sans);
   font-size: 13.5px;
+  letter-spacing: 0.02em;
+  color: var(--faint);
+  pointer-events: none;
+  transition: top 0.2s var(--ease), font-size 0.2s var(--ease),
+    color 0.2s var(--ease), letter-spacing 0.2s var(--ease), transform 0.2s var(--ease);
 }
+/* input 带一个空格 placeholder，于是 :placeholder-shown 正等价于「还没输入」。
+   这样聚焦上浮、有内容保持上浮，都由浏览器状态驱动，不用 JS 记 class，
+   程序里直接改 value（比如判错后回填答案）也会自动跟着浮起来。 */
+#typeInput:focus ~ .type-label,
+#typeInput:not(:placeholder-shown) ~ .type-label {
+  top: 9px;
+  transform: none;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+#typeInput:focus ~ .type-label { color: var(--accent-deep); }
+
 #typeInput:focus {
   border-color: var(--accent);
   background: var(--surface);
@@ -995,11 +1093,12 @@ button {
   border: 1px solid var(--line);
   border-radius: 6px;
   background: linear-gradient(180deg, var(--surface), var(--surface-2));
-  color: var(--muted);
+  color: var(--key-ink);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 15px;
+  font-weight: 500;
   line-height: 1;
-  letter-spacing: 0;
+  letter-spacing: 0.01em;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) inset,
     0 1px 1px rgba(23, 22, 15, 0.05);
   transition: transform 0.07s ease, background-color 0.1s var(--ease),
@@ -1012,12 +1111,14 @@ button {
     0 1px 1px rgba(0, 0, 0, 0.25);
 }
 .kb-key.is-wide {
-  font-size: 9px;
-  color: var(--faint);
+  font-size: 11px;
+  color: var(--muted);
 }
 /* 宽键/空格不按 1:1 算高度，交给所在行拉伸（行高由普通键的 aspect-ratio 决定） */
 .kb-key.is-wide,
 .kb-key.kb-space { aspect-ratio: auto; }
+/* 空格与同一排的 ctrl/alt 同样按「功能键」降一级字号，主键区才是视觉主角 */
+.kb-key.kb-space { font-size: 11px; color: var(--muted); }
 
 /* 下一个该敲的键：手指落点提示，外圈呼吸、字母变靛青 */
 .kb-key.is-hint {
@@ -1065,6 +1166,18 @@ button {
 /* 看词自评阶段还没有答案：答案区只隐藏、不摘出文档流。
    占位保留 → 揭晓释义前后单词位置完全一致，切换单词也不会上下跳。 */
 .drill.is-recall .meaning-block { visibility: hidden; pointer-events: none; }
+/* 这 112px 是为「揭晓释义时单词不跳」而保留的占位，自评阶段是空的，
+   中间就成了大片留白。放一句轻提示填住，高度一点没动。 */
+.drill.is-recall .meaning-block {
+  justify-content: center;
+}
+.drill.is-recall .meaning-block::after {
+  content: "凭第一印象判断，揭晓中文后再打字核对";
+  visibility: visible;
+  font-size: 12px;
+  letter-spacing: 0.07em;
+  color: var(--faint);
+}
 
 /* 键盘常驻：练习页锁定成「视口高度 - 顶栏」，页面不出现上下滚动。
    卡片内部按视口高度收缩（字号用 vh 参与 clamp），键盘永远留在屏幕内。 */
@@ -1105,6 +1218,24 @@ button {
 }
 /* 矮屏：键帽尺寸由宽度决定（1:1 比例），所以「缩小键盘」只能收窄面板，
    绝不能单独改键高，否则行距/列距比例被破坏，手又会对不上。 */
+/* 视口不够高时先把键盘等比收窄。
+   键帽是 aspect-ratio 1.05，高度由宽度推出来，所以「收窄面板 = 整块键盘缩小」，
+   行列比例不变，手部对位依然成立。不收的话键盘会占掉 428px，
+   把上方卡片压到放不下中文释义——打字态就看不见要打的中文了。 */
+@media (max-height: 1020px) and (min-width: 861px) {
+  /* 键盘宽度跟着视口高走：900 高的屏幕塞不下 980 宽的键盘，
+     否则卡片只剩不到 400px，释义区被压成一条 */
+  /* 卡片与键盘一起收窄到同一量级：键盘宽度被视口高卡住，
+     卡片若还保持 84vw，键盘就像缩在一张大桌子中间 */
+  :root { --shell-w: min(980px, 96vw); }
+  .keyboard-panel { --kb-w: min(900px, 95vh); padding-bottom: 20px; }
+  /* 这一档空间最紧：卡片内边距、单词上限、底部提示各让一点，
+     换来释义区不被挤成一条，输入框也不至于贴着中文 */
+  .drill .stage { padding: 22px 36px 20px; }
+  .drill .word { font-size: clamp(52px, min(7vw, 9.2vh), 84px); }
+  .drill .hints { height: 26px; min-height: 26px; }
+}
+
 @media (max-height: 860px) and (min-width: 861px) {
   .keyboard-dock.on { max-height: 360px; margin-top: 12px; }
   .keyboard-panel { --kb-w: 900px; padding: 8px 18px 22px; }
@@ -1115,6 +1246,17 @@ button {
   .drill .meaning-block { --meaning-h: clamp(96px, 15vh, 132px); min-height: 0; }
   .drill .answer { min-height: 1.8em; }
   .drill .action-zone { height: 74px; }
+  /* 矮屏没有空间做「标签上浮」，改成有内容即淡出，省下 10px 高度 */
+  .type-field { --type-h: 48px; }
+  .feedback { height: 18px; margin-top: 8px; }
+  .drill #typeInput:focus ~ .type-label,
+  .drill #typeInput:not(:placeholder-shown) ~ .type-label {
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 13.5px;
+    letter-spacing: 0.02em;
+    opacity: 0;
+  }
 }
 /* 更矮（笔记本半屏、缩放后的窗口）：再压一档，宁可小也不出滚动条 */
 @media (max-height: 700px) and (min-width: 861px) {
@@ -1126,10 +1268,13 @@ button {
   .drill .meaning-block { --meaning-h: clamp(88px, 14vh, 118px); }
   .drill .answer { font-size: clamp(21px, 2.6vw, 27px); min-height: 1.7em; }
   .drill .action-zone { height: 70px; }
+  .type-field { --type-h: 44px; }
+  .feedback { height: 14px; margin-top: 6px; }
   .keyboard-dock.on { max-height: 300px; margin-top: 10px; }
   .keyboard-panel { --kb-w: 720px; padding: 6px 16px 16px; }
-  .kb-key { font-size: 10px; }
-  .kb-key.is-wide { font-size: 8px; }
+  /* 键帽宽度跟着 --kb-w 缩到 ~41px，字号必须同步收，否则字符顶满键帽 */
+  .kb-key { font-size: 12px; }
+  .kb-key.is-wide { font-size: 9px; }
 }
 /* 极矮（半屏窗口）：只保留要打的中文，补充释义让位给键盘 */
 @media (max-height: 620px) and (min-width: 861px) {
@@ -1139,10 +1284,12 @@ button {
   .drill .answer { font-size: 19px; min-height: 1.35em; }
   .drill .full-def { display: none; }
   .drill .action-zone { height: 64px; }
+  .type-field { --type-h: 42px; }
+  .feedback { height: 12px; margin-top: 6px; }
   .keyboard-dock.on { max-height: 260px; }
   .keyboard-panel { --kb-w: 620px; }
-  .kb-key { font-size: 9px; }
-  .kb-key.is-wide { font-size: 7px; }
+  .kb-key { font-size: 11px; }
+  .kb-key.is-wide { font-size: 8px; }
 }
 
 /* ============================================================
