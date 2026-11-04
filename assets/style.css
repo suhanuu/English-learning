@@ -59,6 +59,12 @@
   --ease: cubic-bezier(0.22, 0.68, 0.24, 1);
   --scale: 1;
 
+  /* 主内容宽度：卡片 + 键盘大约占视口 80%（窄屏兜底 960px，宽屏封顶 1400px）。
+     顶栏、卡片、键盘共用这两个变量，左右边缘始终对齐。 */
+  --shell-w: min(1560px, max(960px, 84vw));
+  --shell-pad: max(18px, calc((100vw - var(--shell-w)) / 2));
+  --topbar-h: 64px;
+
   /* 指法手：淡色线稿，作为键盘的背景信息而非主角 */
   --hand-fill: #cfd2d4;
   --hand-line: #7b7e82;
@@ -192,11 +198,12 @@ button {
    顶栏
    ============================================================ */
 .topbar {
-  height: 72px;
+  height: var(--topbar-h);
   display: flex;
   align-items: center;
   gap: 30px;
-  padding: 0 34px;
+  /* 左右内边距与主卡片对齐，顶栏按钮和页面边缘保持一条线 */
+  padding: 0 var(--shell-pad);
   border-bottom: 1px solid var(--line);
   position: sticky;
   top: 0;
@@ -324,7 +331,7 @@ button {
 }
 
 .main {
-  min-height: calc(100vh - 72px);
+  min-height: calc(100vh - var(--topbar-h));
   display: flex;
   flex-direction: column;
 }
@@ -398,8 +405,8 @@ button {
    ============================================================ */
 .drill {
   flex: 1;
-  width: min(1000px, 100%);
-  min-height: calc(100vh - 72px);
+  width: var(--shell-w);
+  min-height: calc(100vh - var(--topbar-h));
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -858,8 +865,8 @@ button {
     opacity 0.28s var(--ease), transform 0.38s var(--ease);
 }
 .keyboard-dock.on {
-  max-height: 268px;
-  margin-top: 18px;
+  max-height: 320px;
+  margin-top: 14px;
   opacity: 1;
   transform: none;
 }
@@ -867,9 +874,9 @@ button {
 .keyboard-panel {
   position: relative;
   overflow: hidden;
-  width: min(100%, 664px);
+  width: min(100%, 1200px);
   margin: 0 auto;
-  padding: 12px 22px 10px;
+  padding: 12px 24px 12px;
   border: 1px solid var(--line);
   border-radius: 20px;
   background:
@@ -958,27 +965,27 @@ button {
 .kb-board {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 .kb-row {
   display: flex;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
 }
 .kb-key {
   position: relative;
   flex: 1 1 0;
   min-width: 0;
-  height: 34px;
+  height: 38px;
   display: grid;
   place-items: center;
   padding: 0 2px;
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: 6px;
   background: linear-gradient(180deg, var(--surface), var(--surface-2));
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10.5px;
   line-height: 1;
   letter-spacing: 0;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) inset,
@@ -1048,8 +1055,8 @@ button {
    卡片内部按视口高度收缩（字号用 vh 参与 clamp），键盘永远留在屏幕内。 */
 @media (min-width: 861px) {
   .drill {
-    height: calc(100vh - 72px);
-    height: calc(100dvh - 72px);
+    height: calc(100vh - var(--topbar-h));
+    height: calc(100dvh - var(--topbar-h));
     min-height: 0;
     padding: 20px 24px 10px;
     overflow: hidden;
@@ -1060,7 +1067,7 @@ button {
   /* 舞台自己裁切：内容再多也只在卡片内消化，绝不压到下面的输入区与键盘 */
   .drill .stage { min-height: 0; padding: 10px 30px 6px; overflow: hidden; }
   .drill .stage-kicker { margin-bottom: 8px; }
-  .drill .word { font-size: clamp(34px, min(5.4vw, 7.6vh), 72px); margin-bottom: 5px; }
+  .drill .word { font-size: clamp(40px, min(6.2vw, 8.8vh), 84px); margin-bottom: 6px; }
   .drill .phonetic-row { margin-bottom: 10px; flex: 0 0 auto; }
   /* 释义区按视口给一个固定高度（自评/打字两个阶段共用，切换单词不跳） */
   .drill .meaning-block {
@@ -1074,7 +1081,7 @@ button {
   }
   .drill .answer { min-height: 1.9em; }
   .drill .action-zone { height: 78px; margin-top: 2px; }
-  .drill .keyboard-dock.on { max-height: 250px; margin-top: 14px; }
+  .drill .keyboard-dock.on { max-height: 316px; margin-top: 12px; }
   /* 提示语固定一行，长短不影响卡片高度 */
   .drill .hints { height: 42px; min-height: 42px; padding-top: 0; white-space: nowrap; overflow: hidden; }
 }
@@ -1082,7 +1089,7 @@ button {
   .keyboard-dock { display: none; }
 }
 @media (max-height: 860px) and (min-width: 861px) {
-  .keyboard-dock.on { max-height: 196px; margin-top: 12px; }
+  .keyboard-dock.on { max-height: 214px; margin-top: 12px; }
   .keyboard-panel { padding: 8px 18px 6px; }
   .kb-bar { margin-bottom: 4px; }
   /* 矮屏：整块（键位 + 手）等比缩小，保证手指还落在键上 */
@@ -1106,7 +1113,7 @@ button {
   .drill .meaning-block { --meaning-h: clamp(88px, 14vh, 118px); }
   .drill .answer { font-size: clamp(21px, 2.6vw, 27px); min-height: 1.7em; }
   .drill .action-zone { height: 70px; }
-  .keyboard-dock.on { max-height: 176px; margin-top: 10px; }
+  .keyboard-dock.on { max-height: 192px; margin-top: 10px; }
   .keyboard-panel { padding: 6px 16px 4px; }
   .kb-key { height: 22px; }
   .kb-wrap { width: 66%; }
@@ -1120,7 +1127,7 @@ button {
   .drill .answer { font-size: 19px; min-height: 1.35em; }
   .drill .full-def { display: none; }
   .drill .action-zone { height: 64px; }
-  .keyboard-dock.on { max-height: 160px; }
+  .keyboard-dock.on { max-height: 176px; }
   .kb-key { height: 20px; }
   .kb-wrap { width: 62%; }
   .hands { --hands-bottom: -78px; }
@@ -1598,7 +1605,8 @@ button {
    响应式
    ============================================================ */
 @media (max-width: 720px) {
-  .topbar { padding: 0 14px; gap: 12px; height: 60px; }
+  :root { --topbar-h: 58px; --shell-w: 100%; --shell-pad: 14px; }
+  .topbar { padding: 0 var(--shell-pad); gap: 10px; height: var(--topbar-h); }
   .brand { gap: 8px; }
   .brand-mark { width: 30px; height: 30px; border-radius: 9px; }
   .brand-mark svg { width: 18px; height: 18px; }
@@ -1608,8 +1616,8 @@ button {
   .nav-btn { min-width: 42px; padding: 5px 8px; font-size: 11.5px; }
   .topbar-right { gap: 2px; }
   .icon-btn { width: 30px; height: 30px; }
-  .main { min-height: calc(100vh - 60px); }
-  .drill { min-height: calc(100vh - 60px); padding: 18px 14px 16px; }
+  .main { min-height: calc(100vh - var(--topbar-h)); }
+  .drill { width: 100%; min-height: calc(100vh - var(--topbar-h)); padding: 14px 12px 12px; }
   .study-shell { min-height: 560px; border-radius: 22px; }
   .drill-top { min-height: 54px; padding: 0 18px; gap: 12px; font-size: 9.5px; }
   .progress-label { min-width: 88px; }
@@ -1633,8 +1641,10 @@ button {
 
 @media (max-width: 480px) {
   .topbar { padding: 0 10px; gap: 8px; }
-  .brand-copy strong { font-size: 10.5px; }
-  .nav-btn { min-width: 38px; padding: 5px 7px; }
+  .brand-copy { display: none; }   /* 空间不够时只留图标，给导航让位 */
+  .nav { margin-right: auto; }     /* 导航靠左，右侧按钮自然贴边 */
+  .nav-btn { min-width: 40px; padding: 6px 9px; font-size: 12px; }
+  .icon-btn { width: 32px; height: 32px; }
   .rate-row { gap: 7px; }
   .rate { min-width: 92px; padding: 10px 12px; gap: 7px; }
   .rate kbd { padding: 3px 4px; }
@@ -1644,7 +1654,8 @@ button {
 }
 
 @media (max-width: 390px) {
-  .brand-mark { display: none; }
+  .nav-btn { min-width: 0; flex: 1; padding: 6px 4px; }   /* 三个页签平分剩余宽度 */
+  .rate { min-width: 84px; }
 }
 
 @media (max-height: 780px) and (min-width: 721px) {
