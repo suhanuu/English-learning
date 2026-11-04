@@ -499,20 +499,61 @@
     var host = el('handsSvg');
     if (!host || !window.HANDS_SVG) return;
     host.innerHTML = window.HANDS_SVG;
+    HAND_TIPS = null; // 重新挂载后按新 DOM 重量一次
     syncHands();
     fitHands();
   }
 
   // ===== 手部与键位对位 =====
-  // 画布 716.3×380。下面这张表是每个按键图层里「指尖」的坐标（单位＝SVG 单位，
-  // 由 hand-both.svg 中 st5 高亮笔迹的顶点量得），和 DOM 里真实键心做最小二乘，
-  // 求出「画布 → 屏幕」的等比缩放 s 与平移 tx/ty，直接写成 transform。
-  // 这样键盘宽度、键帽大小、行高怎么变，手指都会重新落到键上，不依赖任何魔法数。
+  // 画布 716.3×380。每个按键图层里的 .st5 描边就是「伸出去的那根手指」，
+  // 沿它的路径采样、取最高点，就是指尖在画布里的坐标。素材重新生成后自动跟着变，
+  // 不需要再手工量一遍。测得的指尖与 DOM 里真实键心做最小二乘，解出
+  // 「画布 → 屏幕」的等比缩放 s 与平移 tx/ty，直接写成 transform，
+  // 于是键盘宽度、键帽大小、行高怎么变，手指都会重新落到键上。
   var HAND_CANVAS_H = 380;
-  var HAND_TIPS = {
-    KeyA: [171.7, 151.0], KeyS: [203.5, 146.7], KeyD: [230.9, 147.9], KeyF: [262.4, 149.5],
-    KeyJ: [355.4, 146.1], KeyK: [383.4, 142.9], KeyL: [410.5, 145.8], Semicolon: [439.3, 151.0]
-  };
+  var HAND_TIPS = null;
+
+  function measureHandTips(host) {
+    if (HAND_TIPS) return HAND_TIPS;
+
+    // 画布高度也从 SVG 自己读，素材换尺寸时淡出比例不会算错
+    var svg = host.querySelector('svg');
+    var vb = svg && svg.viewBox && svg.viewBox.baseVal;
+    if (vb && vb.height > 0) HAND_CANVAS_H = vb.height;
+
+    var ids = { a: 'KeyA', s: 'KeyS', d: 'KeyD', f: 'KeyF', j: 'KeyJ', k: 'KeyK', l: 'KeyL', semicolon: 'Semicolon' };
+    var tips = {}, found = 0;
+
+    for (var id in ids) {
+      if (!Object.prototype.hasOwnProperty.call(ids, id)) continue;
+      var g = host.querySelector('#hb-' + id);
+      if (!g) continue;
+
+      // 一个图层里 st5 可能有几段（分开的笔画），取所有段里最靠上的那个点
+      var paths = g.querySelectorAll('.st5');
+      var best = null;
+      for (var p = 0; p < paths.length; p++) {
+        var len = 0;
+        try { len = paths[p].getTotalLength(); } catch (e) { continue; }
+        if (!(len > 0)) continue;
+
+        var steps = 90;
+        for (var k = 0; k <= steps; k++) {
+          var pt = paths[p].getPointAtLength(len * k / steps);
+          if (!best || pt.y < best.y) best = { x: pt.x, y: pt.y };
+        }
+      }
+      // 图层没有 transform，路径坐标就是画布坐标
+      if (best) { tips[ids[id]] = [best.x, best.y]; found++; }
+    }
+
+    // 少于三指说明素材结构变了（st5 被改名、图层被删），
+    // 这种情况宁可不画手，也不要画一只错位的手
+    if (found < 3) return null;
+
+    HAND_TIPS = tips;
+    return tips;
+  }
 
   function fitHands() {
     var host = el('handsSvg');
@@ -522,16 +563,20 @@
     var wr = wrap.getBoundingClientRect();
     if (wr.width < 1) return; // 窄屏键盘整块隐藏，量不到
 
+    var tips = measureHandTips(host);
+    if (!tips) { host.style.display = 'none'; return; }
+    host.style.display = '';
+
     // 只取主键区八键：那是手停留时间最长的位置，其余行是抬手瞬间的姿势层，
     // 画稿本身带几像素误差，混进去反而把整体拟合拽偏。
     var pairs = [];
-    for (var code in HAND_TIPS) {
-      if (!Object.prototype.hasOwnProperty.call(HAND_TIPS, code)) continue;
+    for (var code in tips) {
+      if (!Object.prototype.hasOwnProperty.call(tips, code)) continue;
       var key = document.querySelector('.kb-key[data-code="' + code + '"]');
       if (!key) continue;
       var r = key.getBoundingClientRect();
       if (r.width < 1) continue;
-      pairs.push([HAND_TIPS[code][0], HAND_TIPS[code][1],
+      pairs.push([tips[code][0], tips[code][1],
         r.left + r.width / 2 - wr.left, r.top + r.height / 2 - wr.top]);
     }
     if (pairs.length < 2) return;
