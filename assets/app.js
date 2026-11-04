@@ -220,9 +220,9 @@
     [['CapsLock', 'caps', 1.8, 1], ['KeyA', 'a'], ['KeyS', 's'], ['KeyD', 'd'],
      ['KeyF', 'f'], ['KeyG', 'g'], ['KeyH', 'h'], ['KeyJ', 'j'], ['KeyK', 'k'],
      ['KeyL', 'l'], ['Semicolon', ';'], ['Quote', "'"], ['Enter', '回车', 2.2, 1]],
-    [['ShiftLeft', 'shift', 2.2, 1], ['KeyZ', 'z'], ['KeyX', 'x'], ['KeyC', 'c'],
+    [['ShiftLeft', 'shift', 2.6, 1], ['KeyZ', 'z'], ['KeyX', 'x'], ['KeyC', 'c'],
      ['KeyV', 'v'], ['KeyB', 'b'], ['KeyN', 'n'], ['KeyM', 'm'], ['Comma', ','],
-     ['Period', '.'], ['Slash', '/'], ['ShiftRight', 'shift', 2.2, 1]],
+     ['Period', '.'], ['Slash', '/'], ['ShiftRight', 'shift', 2.6, 1]],
     [['ControlLeft', 'ctrl', 1.4, 1], ['AltLeft', 'alt', 1.2, 1], ['Space', '空格', 7.2],
      ['AltRight', 'alt', 1.2, 1], ['ControlRight', 'ctrl', 1.4, 1]]
   ];
@@ -500,6 +500,82 @@
     if (!host || !window.HANDS_SVG) return;
     host.innerHTML = window.HANDS_SVG;
     syncHands();
+    fitHands();
+  }
+
+  // ===== 手部与键位对位 =====
+  // 画布 716.3×380。下面这张表是每个按键图层里「指尖」的坐标（单位＝SVG 单位，
+  // 由 hand-both.svg 中 st5 高亮笔迹的顶点量得），和 DOM 里真实键心做最小二乘，
+  // 求出「画布 → 屏幕」的等比缩放 s 与平移 tx/ty，直接写成 transform。
+  // 这样键盘宽度、键帽大小、行高怎么变，手指都会重新落到键上，不依赖任何魔法数。
+  var HAND_CANVAS_H = 380;
+  var HAND_TIPS = {
+    KeyA: [171.7, 151.0], KeyS: [203.5, 146.7], KeyD: [230.9, 147.9], KeyF: [262.4, 149.5],
+    KeyJ: [355.4, 146.1], KeyK: [383.4, 142.9], KeyL: [410.5, 145.8], Semicolon: [439.3, 151.0]
+  };
+
+  function fitHands() {
+    var host = el('handsSvg');
+    var wrap = host && host.parentNode;
+    if (!host || !wrap || !host.firstChild) return;
+
+    var wr = wrap.getBoundingClientRect();
+    if (wr.width < 1) return; // 窄屏键盘整块隐藏，量不到
+
+    // 只取主键区八键：那是手停留时间最长的位置，其余行是抬手瞬间的姿势层，
+    // 画稿本身带几像素误差，混进去反而把整体拟合拽偏。
+    var pairs = [];
+    for (var code in HAND_TIPS) {
+      if (!Object.prototype.hasOwnProperty.call(HAND_TIPS, code)) continue;
+      var key = document.querySelector('.kb-key[data-code="' + code + '"]');
+      if (!key) continue;
+      var r = key.getBoundingClientRect();
+      if (r.width < 1) continue;
+      pairs.push([HAND_TIPS[code][0], HAND_TIPS[code][1],
+        r.left + r.width / 2 - wr.left, r.top + r.height / 2 - wr.top]);
+    }
+    if (pairs.length < 2) return;
+
+    // 等比缩放 + 平移（无旋转）：先去均值，再 s = Σ(a·b) / Σ|a|²
+    var n = pairs.length, mx = 0, my = 0, kx = 0, ky = 0, i;
+    for (i = 0; i < n; i++) {
+      mx += pairs[i][0]; my += pairs[i][1];
+      kx += pairs[i][2]; ky += pairs[i][3];
+    }
+    mx /= n; my /= n; kx /= n; ky /= n;
+
+    var num = 0, den = 0;
+    for (i = 0; i < n; i++) {
+      var ax = pairs[i][0] - mx, ay = pairs[i][1] - my;
+      num += ax * (pairs[i][2] - kx) + ay * (pairs[i][3] - ky);
+      den += ax * ax + ay * ay;
+    }
+    if (den < 1) return;
+
+    var s = num / den;
+    if (!(s > 0)) return;
+    var tx = kx - s * mx, ty = ky - s * my;
+
+    host.style.transform = 'translate(' + tx.toFixed(2) + 'px,' + ty.toFixed(2) +
+      'px) scale(' + s.toFixed(4) + ')';
+
+    // 手腕的淡出终点：把「可视底边」反算回画布坐标，缩放变化后渐变才不会被推到视野外。
+    // 底边＝键位底 + 面板下内边距（那里就是卡片裁切线）
+    var panel = wrap.parentNode;
+    var padBottom = parseFloat(window.getComputedStyle(panel).paddingBottom) || 0;
+    var localEnd = (wrap.clientHeight + padBottom - ty) / s;
+    var pct = localEnd / HAND_CANVAS_H * 100;
+    host.style.setProperty('--hand-fade-end', Math.min(100, Math.max(45, pct)).toFixed(1) + '%');
+  }
+
+  // 键盘尺寸随视口变化（键帽 1:1、矮屏收窄面板），每次变化都要重新对位
+  var fitRaf = 0;
+  function scheduleFitHands() {
+    if (fitRaf) return;
+    fitRaf = requestAnimationFrame(function () {
+      fitRaf = 0;
+      fitHands();
+    });
   }
 
   function clearKeyboard() {
@@ -518,7 +594,7 @@
     dock.setAttribute('aria-hidden', on ? 'false' : 'true');
     var drill = document.querySelector('.drill');
     if (drill) drill.classList.toggle('kb-open', !!on);
-    if (on) syncHands(); else clearKeyboard();
+    if (on) { syncHands(); fitHands(); } else clearKeyboard();
   }
 
   function visualKey(e, down) {
@@ -1637,6 +1713,13 @@
   // 没有欢迎页也没有每日任务：打开就是接着上次的那个词
   buildKeyboard();
   mountHands();
+  // 视口/容器尺寸一变，键位就动了，手要跟着重新落位
+  window.addEventListener('resize', scheduleFitHands);
+  window.addEventListener('orientationchange', scheduleFitHands);
+  if (window.ResizeObserver) {
+    var kbWrapEl = document.querySelector('.kb-wrap');
+    if (kbWrapEl) new ResizeObserver(scheduleFitHands).observe(kbWrapEl);
+  }
   applySettings();
   bind();
   startTimer();

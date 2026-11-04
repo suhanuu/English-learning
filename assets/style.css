@@ -874,9 +874,13 @@ button {
 .keyboard-panel {
   position: relative;
   overflow: hidden;
-  width: min(100%, 1200px);
+  /* --kb-w 是「键盘面板」的宽度上限，矮屏靠它整体收窄。
+     键帽宽高比固定，收窄宽度＝等比缩小整块键盘（含手），比例不会被破坏。 */
+  width: min(100%, var(--kb-w, 1200px));
   margin: 0 auto;
-  padding: 12px 24px 12px;
+  /* 底部多留一截：手指要能越过空格键、在面板内自然淡出，
+     而不是被卡片下沿一刀切断（键盘下沿本来就该是「掌托」） */
+  padding: 12px 24px 34px;
   border: 1px solid var(--line);
   border-radius: 20px;
   background:
@@ -897,18 +901,21 @@ button {
 .hands {
   position: absolute;
   left: 0;
-  bottom: var(--hands-bottom, -128px);
-  width: 100%;
+  top: 0;
+  /* 盒子＝SVG 画布尺寸（716.3×380）：1 个 SVG 单位恰好 1px，
+     JS 算出的平移/缩放就能原样写进 transform，不必再换单位 */
+  width: 716.3px;
+  height: 380px;
   z-index: 3;
-  /* 手的画稿是给原站那套键位画的，铺满键盘宽度后整体还小一圈，
-     这里按实测放大 1.587 倍并右移 6.7%，让指尖落在键位上。 */
-  transform: translateX(6.7%) scale(1.587);
-  transform-origin: 50% 50%;
+  transform-origin: 0 0;
+  transform: translate(0, 0) scale(1);
   pointer-events: none;
   opacity: 0.88; /* 手是淡线稿，键要能透出来 */
-  /* 手腕在卡片底边淡出，避免一刀切的硬边 */
-  -webkit-mask-image: linear-gradient(to bottom, #000 74%, transparent 96%);
-  mask-image: linear-gradient(to bottom, #000 74%, transparent 96%);
+  /* 手腕在键盘下沿淡出：终点由 JS 按实际缩放折算成画布百分比，
+     否则等比放大后渐变会落到可视区外，只剩一条硬切边 */
+  --hand-fade-end: 96%;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(var(--hand-fade-end) - 12%), transparent var(--hand-fade-end));
+  mask-image: linear-gradient(to bottom, #000 calc(var(--hand-fade-end) - 12%), transparent var(--hand-fade-end));
   transition: opacity 0.3s var(--ease);
 }
 .hands svg {
@@ -963,8 +970,10 @@ button {
 }
 
 .kb-board {
-  display: flex;
-  flex-direction: column;
+  /* 行高用 grid 的 1fr 拉齐：最下一排全是宽键（ctrl/alt/空格），
+     没有方键撑高度，单纯 flex 会让它塌成一条。 */
+  display: grid;
+  grid-auto-rows: 1fr;
   gap: 5px;
 }
 .kb-row {
@@ -976,7 +985,10 @@ button {
   position: relative;
   flex: 1 1 0;
   min-width: 0;
-  height: 38px;
+  /* 键帽必须接近方形：手部素材的画布列距 30.2、行距 28.9（SVG 单位），
+     1.05 正是「行距/列距 = 28.9/30.2」反推出来的比值。
+     高度由宽度推出来，不能写死 px —— 宽屏下键一变成扁条，手必然错位。 */
+  aspect-ratio: 1.05;
   display: grid;
   place-items: center;
   padding: 0 2px;
@@ -985,7 +997,7 @@ button {
   background: linear-gradient(180deg, var(--surface), var(--surface-2));
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1;
   letter-spacing: 0;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) inset,
@@ -1000,9 +1012,12 @@ button {
     0 1px 1px rgba(0, 0, 0, 0.25);
 }
 .kb-key.is-wide {
-  font-size: 8px;
+  font-size: 9px;
   color: var(--faint);
 }
+/* 宽键/空格不按 1:1 算高度，交给所在行拉伸（行高由普通键的 aspect-ratio 决定） */
+.kb-key.is-wide,
+.kb-key.kb-space { aspect-ratio: auto; }
 
 /* 下一个该敲的键：手指落点提示，外圈呼吸、字母变靛青 */
 .kb-key.is-hint {
@@ -1081,21 +1096,19 @@ button {
   }
   .drill .answer { min-height: 1.9em; }
   .drill .action-zone { height: 78px; margin-top: 2px; }
-  .drill .keyboard-dock.on { max-height: 316px; margin-top: 12px; }
+  .drill .keyboard-dock.on { max-height: 470px; margin-top: 12px; }
   /* 提示语固定一行，长短不影响卡片高度 */
   .drill .hints { height: 42px; min-height: 42px; padding-top: 0; white-space: nowrap; overflow: hidden; }
 }
 @media (max-width: 860px) {
   .keyboard-dock { display: none; }
 }
+/* 矮屏：键帽尺寸由宽度决定（1:1 比例），所以「缩小键盘」只能收窄面板，
+   绝不能单独改键高，否则行距/列距比例被破坏，手又会对不上。 */
 @media (max-height: 860px) and (min-width: 861px) {
-  .keyboard-dock.on { max-height: 214px; margin-top: 12px; }
-  .keyboard-panel { padding: 8px 18px 6px; }
+  .keyboard-dock.on { max-height: 360px; margin-top: 12px; }
+  .keyboard-panel { --kb-w: 900px; padding: 8px 18px 22px; }
   .kb-bar { margin-bottom: 4px; }
-  /* 矮屏：整块（键位 + 手）等比缩小，保证手指还落在键上 */
-  .kb-wrap { width: 72%; margin: 0 auto; }
-  .kb-key { height: 25px; }
-  .hands { --hands-bottom: -92px; }
   .drill .hints { display: none; }
   .drill .stage-kicker { display: none; }
   .drill .word { font-size: clamp(32px, min(5.4vw, 7.2vh), 62px); }
@@ -1113,11 +1126,10 @@ button {
   .drill .meaning-block { --meaning-h: clamp(88px, 14vh, 118px); }
   .drill .answer { font-size: clamp(21px, 2.6vw, 27px); min-height: 1.7em; }
   .drill .action-zone { height: 70px; }
-  .keyboard-dock.on { max-height: 192px; margin-top: 10px; }
-  .keyboard-panel { padding: 6px 16px 4px; }
-  .kb-key { height: 22px; }
-  .kb-wrap { width: 66%; }
-  .hands { --hands-bottom: -82px; }
+  .keyboard-dock.on { max-height: 300px; margin-top: 10px; }
+  .keyboard-panel { --kb-w: 720px; padding: 6px 16px 16px; }
+  .kb-key { font-size: 10px; }
+  .kb-key.is-wide { font-size: 8px; }
 }
 /* 极矮（半屏窗口）：只保留要打的中文，补充释义让位给键盘 */
 @media (max-height: 620px) and (min-width: 861px) {
@@ -1127,10 +1139,10 @@ button {
   .drill .answer { font-size: 19px; min-height: 1.35em; }
   .drill .full-def { display: none; }
   .drill .action-zone { height: 64px; }
-  .keyboard-dock.on { max-height: 176px; }
-  .kb-key { height: 20px; }
-  .kb-wrap { width: 62%; }
-  .hands { --hands-bottom: -78px; }
+  .keyboard-dock.on { max-height: 260px; }
+  .keyboard-panel { --kb-w: 620px; }
+  .kb-key { font-size: 9px; }
+  .kb-key.is-wide { font-size: 7px; }
 }
 
 /* ============================================================
